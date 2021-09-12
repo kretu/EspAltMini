@@ -10,22 +10,21 @@ Adafruit_Sensor *bmp_pressure = bmp.getPressureSensor();
 
 float startP;
 float maxAlt;
-float maxAltOld;
 float Alt;
 int x=0;
 char ssid[32];
 unsigned long currentMillis;
-unsigned long oldMillis=0;
-
+unsigned long oldMillis;
+unsigned long oldMillisSerial;
 
 void setup() {
+  float maxAltOld;
   EEPROM.begin(512);
-  currentMillis = millis();
   Serial.begin(9600);
   Serial.println("BMP280 Sensor event test");
 
   //if (!bmp.begin(BMP280_ADDRESS_ALT, BMP280_CHIPID)) {
-  if (!bmp.begin(0x76)) {
+  if (!bmp.begin(0x76)) {                           /* Example 0x76 I2C Adress of BMP280 */
     Serial.println("Could not find a valid BMP280 sensor, check wiring or "
                       "try a different address!");
     while (1) delay(10);
@@ -43,61 +42,51 @@ void setup() {
   bmp_pressure->getEvent(&pressure_event);
 startP = pressure_event.pressure;
 EEPROM.get(0, maxAltOld);
-sprintf(ssid,"Wysokosc z pamieci %.3f m",maxAltOld);
+sprintf(ssid,"Wysokosc z pamieci %.2f m",maxAltOld);
 WiFi.softAP(ssid);
 
 }
 
 
 
-
-
 void loop() {
 
       while(x<1){
-      Serial.println(ssid);
-      delay(100);
-      Alt = bmp.readAltitude(startP);
-        if(Alt > maxAlt){
-        maxAlt = Alt;
+        currentMillis = millis();
+        if(currentMillis > oldMillis + 100){
+          Alt = bmp.readAltitude(startP);
+          if(Alt > maxAlt) {
+            maxAlt = Alt;
+          }
+          if(maxAlt>Alt+10) {
+            Serial.print("Osiagnieta wysokosc = ");
+            Serial.print(maxAlt);
+            Serial.println(" m ");
+            EEPROM.put(0,maxAlt);
+            EEPROM.commit();
+            sprintf(ssid, "Wysokosc z pomiaru %.2f",maxAlt);
+            WiFi.softAP(ssid);
+            x++;
+          }
+          oldMillis = currentMillis;
         }
-      if(maxAlt>Alt+2) {
-        Serial.println(maxAlt);
-        EEPROM.put(0,maxAlt);
-        EEPROM.commit();
-        sprintf(ssid, "Wysokosc z pomiaru %.2f",maxAlt);
-        WiFi.softAP(ssid);
-        x++;
+        if(currentMillis > oldMillisSerial + 1000){
+          Serial.print("Approx altitude = ");
+          Serial.print(Alt);
+          Serial.println(" m ");
+          Serial.print("Max altitude = ");
+          Serial.print(maxAlt);
+          Serial.println(" m ");
+          Serial.println(ssid);
+          oldMillisSerial = currentMillis;
         }
-      currentMillis = millis();
-      if(currentMillis > oldMillis + 1000){
-        Serial.print("Approx altitude = ");
-        Serial.print(Alt);
-        Serial.println(" m ");
-        Serial.print("Max altitude = ");
-        Serial.print(maxAlt);
-        Serial.println(" m ");
-        Serial.print(maxAltOld);
-        Serial.println(" m ");
-        oldMillis = currentMillis;
-        }
-    }
-    if(currentMillis > oldMillis + 1000){
+      } 
+    currentMillis = millis();  
+    if(currentMillis > oldMillisSerial + 1000){
         Serial.print("Zakonczono pomiar");
         Serial.print("Osiagnieta wysokosc = ");
         Serial.print(maxAlt);
         Serial.println(" m ");
-         Serial.print(maxAltOld);
-        oldMillis = currentMillis;
+        oldMillisSerial = currentMillis;
+        }
     }
-Serial.println(ssid);
-   delay(1000);
-    }
-
-
-
-
-
-
-
-
